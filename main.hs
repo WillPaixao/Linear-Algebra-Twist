@@ -5,7 +5,7 @@ import Data.List (intercalate, transpose)
 -- Defining the interface of operations
 
 class Semiring a where
-  (⊕),(⊗) :: Semiring a => a -> a -> a
+  (⊕), (⊗) :: Semiring a => a -> a -> a
   zero, one :: Semiring a => a
   -- TODO: include closure
 
@@ -55,8 +55,8 @@ sumMatrixMatrix x y = [zipWith (⊕) rx ry | (rx,ry) <- zip x y]
 multMatrixMatrix :: Semiring a => Matrix a -> Matrix a -> Matrix a
 multMatrixMatrix x y = [[foldr (⊕) zero (zipWith (⊗) rx cy) | cy <- transpose y] | rx <- x]
 
-powMatrix :: Semiring a => Int -> Matrix a -> Matrix a
-powMatrix k m = iterate (`multMatrixMatrix` m) (idMatrix (length m)) !! k
+powersMatrix :: Semiring a => Matrix a -> [Matrix a]
+powersMatrix m = iterate (multMatrixMatrix m) (idMatrix (length m))
 
 --- Vectors and their operations 
 
@@ -79,13 +79,38 @@ multMatrixVec m v = matrix2Vec (m `multMatrixMatrix` transpose (vec2Matrix v))
 multVecMatrix :: Semiring a => Vector a -> Matrix a -> Vector a
 multVecMatrix v m = matrix2Vec (vec2Matrix v `multMatrixMatrix` m)
 
--- Inner product
+---- Inner product
 (@) :: Semiring a => Vector a -> Vector a -> a
 u @ v =
   if length u == length v then
     head (head (vec2Matrix u `multMatrixMatrix` transpose (vec2Matrix v)))
   else
     error "Cannot take inner product from vectors of different dimensions!"
+
+-- Defining existence of paths
+
+instance Semiring Bool where
+  (⊕) :: Bool -> Bool -> Bool
+  (⊕) = (||)
+
+  (⊗) :: Bool -> Bool -> Bool
+  (⊗) = (&&)
+
+  zero :: Bool
+  zero = False
+
+  one :: Bool
+  one = True
+
+--- Example matrices
+m2 = 
+  [
+    [False, True , True , False, False],
+    [False, False, True , False, False],
+    [False, False, False, False, False],
+    [False, False, False, True , True ],
+    [False, False, False, True , False]
+  ]
 
 -- Defining min-plus case for adjacency matrices
 
@@ -112,7 +137,7 @@ shortestPaths :: Semiring a => Matrix a -> Matrix a
 shortestPaths m = foldr sumMatrixMatrix (zeroMatrix n) powers
   where
     n = length m
-    powers = take (n+1) (iterate (multMatrixMatrix m) (idMatrix n))
+    powers = take (n+1) (powersMatrix m)
 
 --- Example matrices
 m1 :: Matrix Edge
@@ -136,10 +161,10 @@ instance Semiring Path where
   None    ⊕ q       = q
   p       ⊕ None    = p
   Path ps ⊕ Path qs =
-    if length ps > length qs then
-      Path qs
-    else
+    if length ps < length qs then
       Path ps
+    else
+      Path qs
 
   (⊗) :: Path -> Path -> Path
   None    ⊗ _       = None
@@ -165,6 +190,33 @@ m1' =
 
 -- TODO: find more uses of semirings!
 
+instance Semiring [String] where
+  (⊕) :: [String] -> [String] -> [String]
+  (⊕) = (++)
+
+  (⊗) :: [String] -> [String] -> [String]
+  ss1 ⊗ ss2 = (++) <$> ss1 <*> ss2
+
+  zero :: [String]
+  zero = []
+
+  one :: [String]
+  one = [""]
+
+partialClosures :: Semiring a => Matrix a -> [Matrix a]
+partialClosures m = 
+  scanl sumMatrixMatrix (zeroMatrix (length m)) (powersMatrix m)
+
+acceptedLanguage :: Matrix [String] -> Int -> Int -> Int -> [String]
+acceptedLanguage a n i f = partialClosures a !! (n+1) !! i !! f
+
+a1 =
+  [
+    [[   ], ["a","b"], ["c"]],
+    [[   ], ["c"], ["a"]],
+    [["b"], [   ], [   ]]
+  ]
+
 -- Auxiliar functions
 
 places :: a -> [a] -> [[a]]
@@ -181,3 +233,6 @@ putMatrix (r:rs) = do
   let n = maximum (map (length . show) es)
   putStrLn (intercalate "\t" (map (pad n . show) r))
   putMatrix rs
+
+main :: IO ()
+main = print $ acceptedLanguage a1 10 0 2
