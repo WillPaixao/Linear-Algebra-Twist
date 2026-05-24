@@ -226,13 +226,16 @@ places x (y:ys) = (x:y:ys) : map (y:) (places x ys)
 pad :: Int -> String -> String
 pad n cs = cs ++ replicate (n - length cs) ' '
 
+columnWidths :: Show a => Matrix a -> [Int]
+columnWidths m = [maximum [length (show x) | x <- col] | col <- transpose m]
+
 putMatrix :: Show a => Matrix a -> IO ()
-putMatrix [] = return ()
-putMatrix (r:rs) = do
-  let es = concat (r:rs)
-  let n = maximum (map (length . show) es)
-  putStrLn (intercalate "\t" (map (pad n . show) r))
-  putMatrix rs
+putMatrix m = putRow m (columnWidths m)
+  where
+    putRow [] _ = return ()
+    putRow (r:rs) ws = do
+      putStrLn (unwords (zipWith (\w x -> pad w (show x)) ws r))
+      putRow rs ws
 
 main :: IO ()
 main = print $ acceptedLanguage a1 10 0 2
