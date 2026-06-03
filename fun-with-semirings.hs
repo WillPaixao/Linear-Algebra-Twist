@@ -141,6 +141,8 @@ instance ClosedSemiring ExtendedDouble where
 
   (⊗) :: ExtendedDouble -> ExtendedDouble -> ExtendedDouble
   (ValD x) ⊗ (ValD y) = ValD (x * y)
+  (ValD 0) ⊗ InfD = ValD 0
+  InfD ⊗ (ValD 0) = ValD 0
   _ ⊗ _ = InfD
 
   zero :: ExtendedDouble
